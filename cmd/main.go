@@ -81,11 +81,14 @@ func main() {
 	mux.HandleFunc("POST /api/login", func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Println("[LOGIN] 잘못된 요청")
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
+		log.Printf("[LOGIN] 로그인 시도: %s", req.Username)
 		if req.Username == "admin" && req.Password == "1234" {
+			log.Printf("[LOGIN] 성공: %s", req.Username)
 			http.SetCookie(w, &http.Cookie{
 				Name:     "session_token",
 				Value:    "valid-session-xyz",
@@ -96,12 +99,14 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]string{"message": "Login Success"})
 		} else {
+			log.Printf("[LOGIN] 실패: %s", req.Username)
 			http.Error(w, "Invalid Credentials", http.StatusUnauthorized)
 		}
 	})
 
 	// 2) 날짜 목록
 	mux.HandleFunc("GET /api/dates", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("[DATES] 날짜 목록 요청")
 		time.Sleep(1 * time.Second)
 		dates := []string{"2025-12-24", "2025-12-25", "2026-01-01"}
 		_ = json.NewEncoder(w).Encode(dates)
@@ -110,13 +115,16 @@ func main() {
 	// 3) 좌석 정보
 	mux.HandleFunc("GET /api/seats", func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session_token")
+		log.Printf("[SEATS] 좌석 정보 요청, 인증: %v", cookie)
 		if err != nil || cookie.Value != "valid-session-xyz" {
+			log.Println("[SEATS] 인증 실패")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		mutex.Lock()
 		defer mutex.Unlock()
+		log.Println("[SEATS] 좌석 정보 반환")
 		_ = json.NewEncoder(w).Encode(seats)
 	})
 
@@ -124,6 +132,7 @@ func main() {
 	mux.HandleFunc("GET /api/captcha", func(w http.ResponseWriter, r *http.Request) {
 		code := secureRandomNumber()
 		captchaID := secureRandomString(16)
+		log.Printf("[CAPTCHA] 캡차 생성, ID: %s, CODE: %s", captchaID, code)
 		http.SetCookie(w, &http.Cookie{Name: "captcha_id", Value: captchaID, Path: "/"})
 
 		mutex.Lock()
@@ -144,12 +153,15 @@ func main() {
 	mux.HandleFunc("POST /api/book", func(w http.ResponseWriter, r *http.Request) {
 		var req BookRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			log.Println("[BOOK] 잘못된 요청")
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
+		log.Printf("[BOOK] 예매 요청, 좌석: %s, 캡차: %s", req.SeatID, req.Captcha)
 		cID, err := r.Cookie("captcha_id")
 		if err != nil {
+			log.Println("[BOOK] 캡차 쿠키 없음")
 			http.Error(w, "Captcha expired", http.StatusBadRequest)
 			return
 		}
@@ -159,6 +171,7 @@ func main() {
 
 		realCode, exists := captchaStore[cID.Value]
 		if !exists || realCode != req.Captcha {
+			log.Printf("[BOOK] 캡차 불일치: 입력=%s, 실제=%s", req.Captcha, realCode)
 			http.Error(w, "Incorrect Captcha", http.StatusForbidden)
 			return
 		}
@@ -167,20 +180,24 @@ func main() {
 		for i, s := range seats {
 			if s.ID == req.SeatID {
 				if s.IsBooked {
+					log.Printf("[BOOK] 이미 예약된 좌석: %s", s.ID)
 					http.Error(w, "Already Booked", http.StatusConflict)
 					return
 				}
 				seats[i].IsBooked = true
+				log.Printf("[BOOK] 예매 성공: %s", s.ID)
 				_ = json.NewEncoder(w).Encode(map[string]string{"status": "success", "seat_id": s.ID})
 				return
 			}
 		}
+		log.Printf("[BOOK] 좌석 없음: %s", req.SeatID)
 		http.Error(w, "Seat not found", http.StatusNotFound)
 	})
 
 	// 6) [NEW] 결제 팝업 (Iframe용 HTML)
 	// 교육 포인트: Iframe Context Switching 연습용
 	mux.HandleFunc("/payment", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("[PAYMENT] 결제 페이지 요청")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		html := `
 		<!DOCTYPE html>
@@ -304,20 +321,24 @@ func main() {
 		}
 
 		path := strings.TrimPrefix(r.URL.Path, "/")
+		log.Printf("[STATIC] 정적 파일 서빙 요청: %s", path)
 		if f, err := fsys.Open(path); err == nil {
 			f.Close()
+			log.Printf("[STATIC] 파일 서빙: %s", path)
 			fileServer.ServeHTTP(w, r)
 			return
 		}
 
 		content, err := http.FS(fsys).Open("index.html")
 		if err != nil {
+			log.Println("[STATIC] index.html 없음")
 			http.Error(w, "Index not found", http.StatusInternalServerError)
 			return
 		}
 		defer content.Close()
 
 		stat, _ := content.Stat()
+		log.Println("[STATIC] SPA Fallback: index.html 서빙")
 		http.ServeContent(w, r, "index.html", stat.ModTime(), content)
 	})
 
@@ -327,6 +348,6 @@ func main() {
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 
-	fmt.Println("🎟️  Ticket Practice Server running on http://localhost:8080")
+	log.Println("[SERVER] 🎟️  Ticket Practice Server running on http://localhost:8080")
 	log.Fatal(server.ListenAndServe())
 }

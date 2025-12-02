@@ -43,6 +43,16 @@ build-backend: setup-go ## Go 백엔드 배포용 바이너리를 빌드합니�
 	@echo "--- Building Go Backend Binary ---"
 	@go build -o $(APP_NAME) $(GO_MAIN_CMD)
 
+build-backend-all: setup-go ## 여러 OS/아키텍처용 Go 바이너리 빌드(darwin_arm64, darwin_amd64, windows_amd64, linux_amd64)
+	@echo "--- Building for darwin/arm64 ---"
+	GOOS=darwin GOARCH=arm64 go build -o $(APP_NAME)_darwin_arm64 $(GO_MAIN_CMD)
+	@echo "--- Building for darwin/amd64 ---"
+	GOOS=darwin GOARCH=amd64 go build -o $(APP_NAME)_darwin_amd64 $(GO_MAIN_CMD)
+	@echo "--- Building for windows/amd64 ---"
+	GOOS=windows GOARCH=amd64 go build -o $(APP_NAME)_windows_amd64.exe $(GO_MAIN_CMD)
+	@echo "--- Building for linux/amd64 ---"
+	GOOS=linux GOARCH=amd64 go build -o $(APP_NAME)_linux_amd64 $(GO_MAIN_CMD)
+
 setup-frontend: ## pnpm 의존성을 설치합니다.
 	@echo "--- Installing frontend dependencies via pnpm ---"
 	@cd $(FRONTEND_DIR) && pnpm install

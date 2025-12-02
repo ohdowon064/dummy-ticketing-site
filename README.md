@@ -40,6 +40,20 @@ make tree
 make clean
 ```
 
+## 배포 파일 안내
+
+이 저장소에는 주요 OS/아키텍처(darwin_arm64, darwin_amd64, windows_amd64, linux_amd64)용 백엔드 실행 파일이 함께 제공됩니다.
+
+의존성 설치 없이, 본인 OS에 맞는 파일만 실행하면 바로 서버를 사용할 수 있습니다.
+
+예시:
+- macOS(Apple Silicon): `./dummy-ticketing-site_darwin_arm64`
+- macOS(Intel): `./dummy-ticketing-site_darwin_amd64`
+- Windows: `dummy-ticketing-site_windows_amd64.exe`
+- Linux: `./dummy-ticketing-site_linux_amd64`
+
+프론트엔드 빌드 결과물(`frontend/dist`)도 포함되어 있다면 별도 설치 없이 바로 사용 가능합니다.
+
 ## 참고
 - 프론트엔드 디렉토리: `frontend/`
 - 백엔드 진입점: `main.go` 또는 `cmd/main.go`
